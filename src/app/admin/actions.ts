@@ -429,17 +429,51 @@ export async function saveProductAction(
 
   if (id) {
     await prisma.product.update({ where: { id }, data });
+    await syncProductImages(id, name, formData);
   } else {
     let slug = slugify(name);
     const exists = await prisma.product.findUnique({ where: { slug } });
     if (exists) slug = `${slug}-${Date.now().toString().slice(-4)}`;
     const count = await prisma.product.count();
-    await prisma.product.create({ data: { ...data, slug, sortOrder: count } });
+    const created = await prisma.product.create({ data: { ...data, slug, sortOrder: count } });
+    await syncProductImages(created.id, name, formData);
   }
 
   revalidatePath("/admin/products");
   revalidatePath("/shop");
   redirect("/admin/products?saved=1");
+}
+
+async function syncProductImages(productId: string, alt: string, formData: FormData) {
+  const removeIds = formData.getAll("removeImage").map(String).filter(Boolean);
+  const newIds = formData.getAll("newMedia").map(String).filter(Boolean);
+
+  if (removeIds.length) {
+    await prisma.productImage.deleteMany({
+      where: { productId, mediaId: { in: removeIds } },
+    });
+  }
+
+  if (newIds.length) {
+    let order = await prisma.productImage.count({ where: { productId } });
+    for (const mediaId of newIds) {
+      const media = await prisma.media.findUnique({ where: { id: mediaId }, select: { id: true } });
+      if (!media) continue;
+      await prisma.productImage.create({
+        data: { productId, mediaId, sortOrder: order++, alt },
+      });
+    }
+  }
+
+  const cover = await prisma.productImage.findFirst({
+    where: { productId },
+    orderBy: [{ sortOrder: "asc" }, { id: "asc" }],
+  });
+
+  await prisma.product.update({
+    where: { id: productId },
+    data: { image: cover ? `/api/media/${cover.mediaId}` : null },
+  });
 }
 
 export async function archiveProductAction(formData: FormData) {
@@ -563,6 +597,96 @@ export async function removeTimeOffAction(formData: FormData) {
   await prisma.timeOff.delete({ where: { id: str(formData, "id") } });
   revalidatePath("/admin/settings");
   revalidatePath("/book");
+}
+
+/* ------------------------------------------------------- images & lookbook */
+
+const SITE_IMAGE_KEYS = ["hero", "about", "story"];
+
+export async function saveSiteImageAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireUser();
+  const key = str(formData, "key");
+  if (!SITE_IMAGE_KEYS.includes(key)) return { error: "Unknown image slot." };
+
+  const remove = formData.get("remove") === "on";
+  const mediaId = str(formData, "mediaId");
+  const alt = str(formData, "alt") || null;
+
+  const existing = await prisma.siteImage.findUnique({ where: { key } });
+  const nextMediaId = remove ? null : mediaId || existing?.mediaId || null;
+
+  await prisma.siteImage.upsert({
+    where: { key },
+    update: { mediaId: nextMediaId, alt },
+    create: { key, mediaId: nextMediaId, alt },
+  });
+
+  revalidatePath("/admin/images");
+  revalidatePath("/");
+  revalidatePath("/about");
+  return { success: remove ? "Image removed — the default art is back." : "Image updated." };
+}
+
+export async function addGalleryImageAction(
+  _prev: ActionState,
+  formData: FormData,
+): Promise<ActionState> {
+  await requireUser();
+  const mediaId = str(formData, "mediaId");
+  if (!mediaId) return { error: "Upload a photo first." };
+
+  const count = await prisma.galleryImage.count();
+  await prisma.galleryImage.create({
+    data: {
+      mediaId,
+      caption: str(formData, "caption") || "Recent work",
+      tag: str(formData, "tag") || null,
+      category: str(formData, "category") || "Wigs",
+      sortOrder: count,
+    },
+  });
+
+  revalidatePath("/admin/images");
+  revalidatePath("/gallery");
+  revalidatePath("/");
+  revalidatePath("/about");
+  return { success: "Added to the lookbook." };
+}
+
+export async function updateGalleryImageAction(formData: FormData) {
+  await requireUser();
+  const id = str(formData, "id");
+  if (!id) return;
+
+  await prisma.galleryImage.update({
+    where: { id },
+    data: {
+      caption: str(formData, "caption") || "Recent work",
+      tag: str(formData, "tag") || null,
+      category: str(formData, "category") || "Wigs",
+      sortOrder: Number(formData.get("sortOrder")) || 0,
+      active: formData.get("active") === "on",
+    },
+  });
+
+  revalidatePath("/admin/images");
+  revalidatePath("/gallery");
+  revalidatePath("/");
+  revalidatePath("/about");
+}
+
+export async function deleteGalleryImageAction(formData: FormData) {
+  await requireUser();
+  const id = str(formData, "id");
+  if (!id) return;
+  await prisma.galleryImage.delete({ where: { id } });
+  revalidatePath("/admin/images");
+  revalidatePath("/gallery");
+  revalidatePath("/");
+  revalidatePath("/about");
 }
 
 /* ------------------------------------------------------- orders, outbox, CRM */

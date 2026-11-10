@@ -55,6 +55,7 @@ The site and the dashboard are the same dev server — no separate admin app to 
 | `npm run build` / `npm start` | Production build and serve |
 | `npm run db:push` | Apply schema changes to the database |
 | `npm run db:seed` | Seed initial data (safe to re-run; it won't overwrite edits) |
+| `npm run db:init` | One-time hosted Postgres setup: schema push + seed (needs `DATABASE_URL`) |
 | `npm run db:studio` | Prisma Studio — a spreadsheet-like view of every table |
 | `npm run password -- "new-pass"` | Reset the admin password |
 
@@ -122,21 +123,46 @@ All times are stored as UTC instants and displayed in **Africa/Lagos (WAT)**. Th
 
 ---
 
-## Going live (when you're ready)
+## Going live on Vercel
 
-1. **Domain** — buy `femmebeauty.ng` (or `.com`). Nothing in the code assumes a hostname.
-2. **Database** — create a free Neon or Supabase Postgres project. In `prisma/schema.prisma` change
-   `provider = "sqlite"` to `provider = "postgresql"`, put the connection string in `DATABASE_URL`,
-   then run `npx prisma db push` and `npm run db:seed`.
-3. **Host** — push the folder to GitHub and import it into Vercel. Add the environment variables.
-   Set `AUTH_SECRET` to a fresh 64-character random string and change the admin password.
-4. **Domain + HTTPS** — point the domain at Vercel; HTTPS is automatic.
-5. **Uploads** — product photos currently use generated art. Add real images to `public/` and set a
-   product's `image` field (or extend the form) when the shoot is done.
-6. **WhatsApp automation** — the Outbox currently opens a pre-written message for you to send.
+The repository is already set up for this. Locally it runs on SQLite; on Vercel the build script
+(`scripts/build.mjs`) detects `VERCEL` and generates a PostgreSQL client from the same schema.
+
+1. **Database** — in Vercel, open **Storage / Integrations → Prisma Postgres** and connect it to the
+   project. In the “Custom Prefix” box type `DATABASE` so the generated variable is `DATABASE_URL`
+   (the name the app reads). If it was created as `STORAGE_URL`, rename the variable in
+   **Project → Settings → Environment Variables**.
+2. **Environment variables** — add at least:
+
+   | Key | Value |
+   |---|---|
+   | `DATABASE_URL` | from the Prisma Postgres integration |
+   | `AUTH_SECRET` | a fresh 64-character random string |
+   | `ADMIN_EMAIL` | `femmebeautybysyl@gmail.com` |
+   | `ADMIN_PASSWORD` | a strong password (used only by the one-time seed) |
+   | `NEXT_PUBLIC_SITE_URL` | `https://your-domain` (optional, for social previews) |
+
+3. **Create the tables and first data** — from your computer, point at the hosted database once:
+
+   ```powershell
+   $env:DATABASE_URL = "postgres://…"   # copy the unpooled/direct URL from Vercel
+   npm run db:init                       # generates Postgres client, pushes schema, seeds
+   Remove-Item Env:DATABASE_URL          # back to local SQLite
+   ```
+
+   This seeds your services, products, settings and the admin login. If the database only offers a
+   pooled URL, use the “direct”/“unpooled” connection string for this step.
+
+4. **Deploy** — push to GitHub (already connected) or click **Deploy** in Vercel. The build generates
+   the Postgres client automatically. No database connection is needed during the build.
+5. **Domain + HTTPS** — point the domain at Vercel; HTTPS is automatic.
+6. **Photos** — upload them in the dashboard under **Images** (hero, about, story, lookbook) and on
+   each product. They are stored in the database and served from `/api/media/…`, so they survive
+   redeploys and need no extra storage service.
+7. **WhatsApp automation** — the Outbox currently opens a pre-written message for you to send.
    Connecting the WhatsApp Business API (or Twilio) means adding a `sendNotification()` provider in
    `src/lib/notify.ts`; nothing else changes.
-7. **Payments** — when you want deposits online, wire Paystack into the booking confirmation step
+8. **Payments** — when you want deposits online, wire Paystack into the booking confirmation step
    and flip `AWAITING_DEPOSIT → CONFIRMED` from the webhook. The data model already records
    `depositDue`, `depositPaid` and `paymentMethod`.
 

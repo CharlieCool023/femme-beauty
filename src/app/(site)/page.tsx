@@ -4,7 +4,7 @@ import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 import { money } from "@/lib/format";
 import { durationLabel } from "@/lib/time";
-import { ProductArt } from "@/components/site/ProductArt";
+import { SmartImage } from "@/components/site/SmartImage";
 import { ProductCard } from "@/components/site/ProductCard";
 import { GALLERY } from "@/lib/content";
 
@@ -12,7 +12,7 @@ export const dynamic = "force-dynamic";
 
 export default async function HomePage() {
   const settings = await getSettings();
-  const [services, products, testimonials] = await Promise.all([
+  const [services, products, testimonials, siteImages, galleryRows] = await Promise.all([
     prisma.service.findMany({
       where: { active: true, featured: true },
       orderBy: { sortOrder: "asc" },
@@ -24,9 +24,27 @@ export default async function HomePage() {
       take: 4,
     }),
     prisma.testimonial.findMany({ where: { active: true }, take: 3 }),
+    prisma.siteImage.findMany(),
+    prisma.galleryImage.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      take: 6,
+    }),
   ]);
 
-  const gallery = GALLERY.slice(0, 6);
+  const imageFor = (key: string) => {
+    const mediaId = siteImages.find((image) => image.key === key)?.mediaId;
+    return mediaId ? `/api/media/${mediaId}` : null;
+  };
+
+  const gallery = galleryRows.length
+    ? galleryRows.map((image) => ({
+        title: image.caption,
+        tag: image.tag ?? "",
+        category: image.category,
+        url: `/api/media/${image.mediaId}`,
+      }))
+    : GALLERY.slice(0, 6).map((item) => ({ ...item, url: null }));
 
   return (
     <>
@@ -81,7 +99,13 @@ export default async function HomePage() {
           <div className="relative mx-auto w-full max-w-md lg:mr-0">
             <div className="overflow-hidden rounded-[2rem] shadow-[0_30px_80px_-30px_rgba(59,42,36,0.4)]">
               <div className="relative">
-                <ProductArt category="Wigs" seed="hero-frontal" className="aspect-[4/5] w-full" />
+                <SmartImage
+                  src={imageFor("hero")}
+                  alt="Femme Beauty signature install"
+                  category="Wigs"
+                  seed="hero-frontal"
+                  className="aspect-[4/5] w-full"
+                />
                 <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-[#2b1d18]/80 via-[#2b1d18]/25 to-transparent p-6 pt-16 text-cream">
                   <p className="text-[10px] uppercase tracking-[0.24em] text-cream/70">
                     Signature service
@@ -180,7 +204,13 @@ export default async function HomePage() {
         <div className="shell grid items-center gap-12 lg:grid-cols-2">
           <div className="relative order-2 lg:order-1">
             <div className="overflow-hidden rounded-[2rem]">
-              <ProductArt category="Hair" seed="custom-build" className="aspect-[5/4] w-full" />
+              <SmartImage
+                src={imageFor("story")}
+                alt="A custom unit being made at Femme Beauty"
+                category="Hair"
+                seed="custom-build"
+                className="aspect-[5/4] w-full"
+              />
             </div>
             <div className="absolute -bottom-5 left-6 rounded-xl bg-cream px-5 py-4 shadow-lg">
               <p className="font-display text-2xl text-espresso">7–14 days</p>
@@ -242,7 +272,9 @@ export default async function HomePage() {
               href="/gallery"
               className="group relative w-[74%] shrink-0 snap-start overflow-hidden rounded-2xl sm:w-[280px]"
             >
-              <ProductArt
+              <SmartImage
+                src={item.url}
+                alt={item.title}
                 category={item.category}
                 seed={`gallery-${index}`}
                 className="aspect-[4/5] w-full transition-transform duration-700 group-hover:scale-105"

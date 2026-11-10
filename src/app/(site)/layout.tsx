@@ -4,6 +4,10 @@ import { Footer } from "@/components/site/Footer";
 import { getSettings } from "@/lib/settings";
 import { whatsappLink } from "@/lib/utils";
 
+// The header/footer read business settings from the database; keep every public
+// page server-rendered so builds never depend on a live database connection.
+export const dynamic = "force-dynamic";
+
 export default async function SiteLayout({ children }: { children: React.ReactNode }) {
   const settings = await getSettings();
 

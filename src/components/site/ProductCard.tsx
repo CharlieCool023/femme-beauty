@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
-import { ProductArt } from "@/components/site/ProductArt";
+import { SmartImage } from "@/components/site/SmartImage";
 import { money } from "@/lib/format";
 import { cn } from "@/lib/utils";
 
@@ -38,7 +38,9 @@ export function ProductCard({ product, priority }: { product: CardProduct; prior
   return (
     <Link href={`/shop/${product.slug}`} className="group block">
       <div className="relative overflow-hidden rounded-[1.25rem] bg-blush">
-        <ProductArt
+        <SmartImage
+          src={product.image}
+          alt={product.name}
           category={product.category}
           seed={product.slug}
           className="aspect-[4/5] w-full transition-transform duration-700 group-hover:scale-[1.04]"

@@ -2,6 +2,8 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import { ArrowRight, Heart, Scissors, Sparkles } from "lucide-react";
 import { ProductArt } from "@/components/site/ProductArt";
+import { SmartImage } from "@/components/site/SmartImage";
+import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
@@ -13,7 +15,25 @@ export const metadata: Metadata = {
 };
 
 export default async function AboutPage() {
-  const settings = await getSettings();
+  const [settings, aboutImage, gallery] = await Promise.all([
+    getSettings(),
+    prisma.siteImage.findUnique({ where: { key: "about" } }),
+    prisma.galleryImage.findMany({
+      where: { active: true },
+      orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }],
+      take: 4,
+    }),
+  ]);
+
+  const aboutUrl = aboutImage?.mediaId ? `/api/media/${aboutImage.mediaId}` : null;
+  const tiles =
+    gallery.length === 4
+      ? gallery.map((image) => ({
+          url: `/api/media/${image.mediaId}`,
+          category: image.category,
+          alt: image.caption,
+        }))
+      : [];
 
   return (
     <div>
@@ -41,7 +61,13 @@ export default async function AboutPage() {
 
         <div className="relative">
           <div className="overflow-hidden rounded-[2rem]">
-            <ProductArt category="Wigs" seed="about-studio" className="aspect-[4/5] w-full" />
+            <SmartImage
+              src={aboutUrl}
+              alt="Inside the Femme Beauty studio"
+              category="Wigs"
+              seed="about-studio"
+              className="aspect-[4/5] w-full"
+            />
           </div>
           <div className="absolute -bottom-6 -left-4 max-w-[220px] rounded-2xl bg-cream p-5 shadow-xl sm:-left-8">
             <p className="font-script text-3xl leading-none text-rose-deep">Syl</p>
@@ -108,10 +134,24 @@ export default async function AboutPage() {
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          <ProductArt category="Nails" seed="about-nails" className="aspect-square rounded-2xl" />
-          <ProductArt category="Lashes" seed="about-lashes" className="mt-8 aspect-square rounded-2xl" />
-          <ProductArt category="Braids" seed="about-braids" className="aspect-square rounded-2xl" />
-          <ProductArt category="Hair" seed="about-hair" className="mt-8 aspect-square rounded-2xl" />
+          {tiles.length === 4 ? (
+            tiles.map((tile, index) => (
+              <SmartImage
+                key={tile.url}
+                src={tile.url}
+                alt={tile.alt}
+                category={tile.category}
+                className={`aspect-square rounded-2xl ${index % 2 === 1 ? "mt-8" : ""}`}
+              />
+            ))
+          ) : (
+            <>
+              <ProductArt category="Nails" seed="about-nails" className="aspect-square rounded-2xl" />
+              <ProductArt category="Lashes" seed="about-lashes" className="mt-8 aspect-square rounded-2xl" />
+              <ProductArt category="Braids" seed="about-braids" className="aspect-square rounded-2xl" />
+              <ProductArt category="Hair" seed="about-hair" className="mt-8 aspect-square rounded-2xl" />
+            </>
+          )}
         </div>
       </section>
     </div>

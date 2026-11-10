@@ -75,11 +75,19 @@ export default async function AdminProductsPage({
             {products.map((product) => (
               <tr key={product.id} className="transition hover:bg-shell/50">
                 <td className="px-4 py-3">
-                  <Link href={`/admin/products/${product.id}`} className="block">
-                    <span className="block text-[13px] text-ink">{product.name}</span>
-                    <span className="block text-[10px] text-muted">
-                      {product.sku ?? product.slug}
-                      {product.featured ? " · featured" : ""}
+                  <Link href={`/admin/products/${product.id}`} className="flex items-center gap-3">
+                    <span className="h-10 w-10 shrink-0 overflow-hidden rounded-lg bg-blush">
+                      {product.image ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img src={product.image} alt="" className="h-full w-full object-cover" />
+                      ) : null}
+                    </span>
+                    <span className="min-w-0">
+                      <span className="block truncate text-[13px] text-ink">{product.name}</span>
+                      <span className="block text-[10px] text-muted">
+                        {product.sku ?? product.slug}
+                        {product.featured ? " · featured" : ""}
+                      </span>
                     </span>
                   </Link>
                 </td>

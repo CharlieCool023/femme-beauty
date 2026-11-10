@@ -4,12 +4,13 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
+    "build": "node scripts/build.mjs",
     "start": "next start",
     "db:push": "prisma db push",
     "db:generate": "prisma generate",
     "db:seed": "tsx prisma/seed.ts",
     "db:studio": "prisma studio",
+    "db:init": "node scripts/init-db.mjs",
     "password": "node --env-file=.env scripts/set-password.mjs"
   },
   "dependencies": {

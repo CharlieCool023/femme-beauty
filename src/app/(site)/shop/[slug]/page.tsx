@@ -4,7 +4,7 @@ import type { Metadata } from "next";
 import { ChevronRight, ArrowLeft } from "lucide-react";
 import { prisma } from "@/lib/db";
 import { getSettings } from "@/lib/settings";
-import { ProductArt } from "@/components/site/ProductArt";
+import { ProductGallery } from "@/components/site/ProductGallery";
 import { OrderPanel } from "@/components/site/OrderPanel";
 import { ProductCard } from "@/components/site/ProductCard";
 import { money } from "@/lib/format";
@@ -27,7 +27,10 @@ export async function generateMetadata({ params }: { params: Params }): Promise<
 export default async function ProductPage({ params }: { params: Params }) {
   const { slug } = await params;
   const [product, settings] = await Promise.all([
-    prisma.product.findFirst({ where: { slug, active: true } }),
+    prisma.product.findFirst({
+      where: { slug, active: true },
+      include: { images: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] } },
+    }),
     getSettings(),
   ]);
 
@@ -54,6 +57,9 @@ export default async function ProductPage({ params }: { params: Params }) {
     description: product.description ?? undefined,
     category: product.category,
     brand: { "@type": "Brand", name: "Femme Beauty" },
+    ...(product.images.length
+      ? { image: product.images.map((image) => `/api/media/${image.mediaId}`) }
+      : {}),
     offers: {
       "@type": "Offer",
       priceCurrency: "NGN",
@@ -85,19 +91,21 @@ export default async function ProductPage({ params }: { params: Params }) {
 
       <div className="mt-7 grid gap-10 lg:grid-cols-[1.05fr_0.95fr] lg:gap-16">
         <div>
-          <div className="relative overflow-hidden rounded-[2rem]">
-            <ProductArt
-              category={product.category}
-              seed={product.slug}
-              className="aspect-[4/5] w-full"
-            />
-            <span className="absolute left-4 top-4 rounded-full bg-cream/85 px-3 py-1.5 text-[10px] uppercase tracking-[0.16em] text-espresso backdrop-blur">
-              {product.category}
-            </span>
-          </div>
-          <p className="mt-3 text-center text-[11px] text-muted">
-            Studio photography coming soon — this piece is finished by hand, so no two are identical.
-          </p>
+          <ProductGallery
+            images={product.images.map((image) => ({
+              url: `/api/media/${image.mediaId}`,
+              alt: image.alt,
+            }))}
+            name={product.name}
+            category={product.category}
+            seed={product.slug}
+          />
+          {product.images.length === 0 && (
+            <p className="mt-3 text-center text-[11px] text-muted">
+              Studio photography coming soon — this piece is finished by hand, so no two are
+              identical.
+            </p>
+          )}
         </div>
 
         <div className="lg:pt-2">

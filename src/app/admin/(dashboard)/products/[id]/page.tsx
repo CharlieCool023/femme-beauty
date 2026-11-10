@@ -10,7 +10,14 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const isNew = id === "new";
 
-  const product = isNew ? null : await prisma.product.findUnique({ where: { id } });
+  const product = isNew
+    ? null
+    : await prisma.product.findUnique({
+        where: { id },
+        include: {
+          images: { orderBy: [{ sortOrder: "asc" }, { id: "asc" }] },
+        },
+      });
   if (!isNew && !product) notFound();
 
   return (
@@ -40,6 +47,11 @@ export default async function EditProductPage({ params }: { params: Promise<{ id
                 variantsJson: product.variantsJson,
                 featured: product.featured,
                 active: product.active,
+                images: product.images.map((image) => ({
+                  mediaId: image.mediaId,
+                  url: `/api/media/${image.mediaId}`,
+                  alt: image.alt,
+                })),
               }
             : undefined
         }

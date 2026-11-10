@@ -6,6 +6,7 @@ import { useFormStatus } from "react-dom";
 import { Loader2, Save } from "lucide-react";
 import { saveProductAction, type ActionState } from "@/app/admin/actions";
 import { PRODUCT_CATEGORIES } from "@/lib/content";
+import { MediaUploader } from "@/components/admin/MediaUploader";
 
 const initial: ActionState = {};
 
@@ -21,6 +22,7 @@ type ProductValues = {
   variantsJson: string;
   featured: boolean;
   active: boolean;
+  images?: { mediaId: string; url: string; alt: string | null }[];
 };
 
 function Submit({ isNew }: { isNew: boolean }) {
@@ -168,6 +170,58 @@ export function ProductForm({ product }: { product?: ProductValues }) {
           {state.error}
         </p>
       )}
+
+      <div className="rounded-xl border border-line bg-white/70 p-4">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-medium text-ink">Photos</h2>
+            <p className="mt-0.5 text-[11px] text-muted">
+              The first photo is the cover used in the shop. Remove it to promote the next one.
+            </p>
+          </div>
+        </div>
+
+        {product?.images && product.images.length > 0 && (
+          <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
+            {product.images.map((image, index) => (
+              <label
+                key={image.mediaId}
+                className="group relative cursor-pointer overflow-hidden rounded-lg border border-line"
+              >
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={image.url}
+                  alt={image.alt ?? product.name}
+                  className="aspect-square w-full object-cover"
+                />
+                {index === 0 && (
+                  <span className="absolute left-1.5 top-1.5 rounded-full bg-ink/85 px-2 py-0.5 text-[8px] uppercase tracking-[0.1em] text-cream">
+                    Cover
+                  </span>
+                )}
+                <span className="absolute inset-x-0 bottom-0 flex items-center gap-1.5 bg-ink/70 px-2 py-1 text-[9px] text-cream">
+                  <input
+                    type="checkbox"
+                    name="removeImage"
+                    value={image.mediaId}
+                    className="h-3 w-3 accent-[#c08b7a]"
+                  />
+                  Remove
+                </span>
+              </label>
+            ))}
+          </div>
+        )}
+
+        <div className="mt-3">
+          <MediaUploader
+            name="newMedia"
+            multiple
+            label="Upload photos"
+            hint="JPG, PNG, WebP or AVIF up to 8MB. Photos are resized in your browser before upload."
+          />
+        </div>
+      </div>
 
       <div className="flex items-center gap-3">
         <Submit isNew={isNew} />
