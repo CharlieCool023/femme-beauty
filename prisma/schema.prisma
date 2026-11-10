@@ -1,0 +1,181 @@
+// Femme Beauty — data model
+// SQLite today, Postgres-compatible for production.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  name         String
+  passwordHash String
+  role         String   @default("OWNER") // OWNER | MANAGER
+  createdAt    DateTime @default(now())
+  lastLoginAt  DateTime?
+}
+
+model Staff {
+  id           String         @id @default(cuid())
+  name         String
+  title        String?
+  bio          String?
+  active       Boolean        @default(true)
+  sortOrder    Int            @default(0)
+  availability Availability[]
+  timeOff      TimeOff[]
+  appointments Appointment[]
+}
+
+/// Recurring weekly working window. Multiple rows per weekday allow split shifts.
+/// Minutes are counted from midnight (9:00am = 540).
+model Availability {
+  id      String @id @default(cuid())
+  staffId String
+  weekday Int // 0 = Sunday … 6 = Saturday
+  startMin Int
+  endMin   Int
+  staff   Staff @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId, weekday])
+}
+
+model TimeOff {
+  id      String   @id @default(cuid())
+  staffId String
+  start   DateTime
+  end     DateTime
+  reason  String?
+  staff   Staff    @relation(fields: [staffId], references: [id], onDelete: Cascade)
+
+  @@index([staffId, start])
+}
+
+model Service {
+  id             String        @id @default(cuid())
+  slug           String        @unique
+  name           String
+  category       String // Wig Installation | Braids | Hair Care | Nails | Lashes | Wig Making
+  description    String?
+  durationMin    Int
+  bufferAfterMin Int           @default(15)
+  price          Int // Naira
+  depositPct     Int? // overrides the global setting when set
+  active         Boolean       @default(true)
+  hidden         Boolean       @default(false) // internal services (e.g. custom requests) never show publicly
+  featured       Boolean       @default(false)
+  sortOrder      Int           @default(0)
+  appointments   Appointment[]
+}
+
+model Customer {
+  id           String        @id @default(cuid())
+  name         String
+  phone        String
+  email        String?
+  notes        String? // cap size, lace preference, allergies
+  createdAt    DateTime      @default(now())
+  appointments Appointment[]
+
+  @@index([phone])
+}
+
+model Appointment {
+  id            String    @id @default(cuid())
+  reference     String    @unique
+  customerId    String
+  staffId       String
+  serviceId     String
+  start         DateTime
+  end           DateTime
+  status        String    @default("PENDING") // PENDING | AWAITING_DEPOSIT | CONFIRMED | COMPLETED | CANCELLED | NO_SHOW
+  price         Int
+  depositDue    Int       @default(0)
+  depositPaid   Boolean   @default(false)
+  paymentMethod String? // TRANSFER | CASH | POS | NONE
+  customerNote  String?
+  internalNote  String?
+  customCategory String? // set when the client described their own service
+  customBrief    String? // their description of what they want
+  customBudget   Int? // optional budget in Naira
+  customQuotedAt DateTime?
+  source        String    @default("WEB") // WEB | ADMIN | WHATSAPP
+  holdExpiresAt DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  customer      Customer  @relation(fields: [customerId], references: [id])
+  staff         Staff     @relation(fields: [staffId], references: [id])
+  service       Service   @relation(fields: [serviceId], references: [id])
+
+  @@index([start])
+  @@index([status])
+  @@index([customerId])
+}
+
+model Product {
+  id           String   @id @default(cuid())
+  slug         String   @unique
+  name         String
+  category     String // Wigs | Hair | Nails | Lashes | Accessories
+  description  String?
+  price        Int
+  compareAt    Int?
+  sku          String?
+  status       String   @default("IN_STOCK") // IN_STOCK | MADE_TO_ORDER | SOLD_OUT
+  variantsJson String   @default("[]") // [{ label, price }]
+  image        String? // optional real photo path
+  featured     Boolean  @default(false)
+  active       Boolean  @default(true)
+  sortOrder    Int      @default(0)
+  createdAt    DateTime @default(now())
+  orderIntents OrderIntent[]
+}
+
+model OrderIntent {
+  id          String   @id @default(cuid())
+  productId   String?
+  productName String
+  variant     String?
+  amount      Int?
+  customerName String?
+  phone       String?
+  note        String?
+  status      String   @default("NEW") // NEW | CONTACTED | PAID | DELIVERED | CLOSED
+  createdAt   DateTime @default(now())
+  product     Product? @relation(fields: [productId], references: [id], onDelete: SetNull)
+
+  @@index([createdAt])
+}
+
+model Notification {
+  id        String    @id @default(cuid())
+  channel   String // WHATSAPP | EMAIL
+  to        String
+  subject   String?
+  body      String
+  status    String    @default("QUEUED") // QUEUED | SENT | FAILED
+  relatedId String?
+  createdAt DateTime  @default(now())
+  sentAt    DateTime?
+
+  @@index([createdAt])
+}
+
+model Testimonial {
+  id      String  @id @default(cuid())
+  name    String
+  text    String
+  service String?
+  rating  Int     @default(5)
+  active  Boolean @default(true)
+}
+
+model Setting {
+  key   String @id
+  value String
+}

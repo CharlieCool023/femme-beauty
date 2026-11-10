@@ -1,0 +1,21 @@
+# Run the site
+
+# 0. Environment (first time)
+Copy-Item .env.example .env
+# edit .env: set AUTH_SECRET and ADMIN_PASSWORD
+
+# 1. Install (first time)
+npm install
+
+# 2. Database (first time, or after schema changes)
+npm run db:generate
+npm run db:push
+npm run db:seed
+
+# 3. Start
+npm run dev
+# open http://localhost:3000  ·  admin: http://localhost:3000/admin
+# if port 3000 is busy: npm run dev -- -p 4400
+
+# Change the admin password before going live:
+# npm run password -- "a-long-new-password"
